@@ -134,5 +134,4 @@ These update in real-time during the Boss level. Screenshot or log them for your
 
 ---
 
-*Prepared for AL2002 Artificial Intelligence Lab, Spring 2026*
 >>>>>>> 71dd058 (Initial commit)
