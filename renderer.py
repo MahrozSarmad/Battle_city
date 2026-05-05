@@ -1,7 +1,4 @@
-"""
-Renderer — Draws the game world with retro CRT aesthetic
-AL2002 Artificial Intelligence Lab | Spring 2026
-"""
+
 
 import pygame
 import math

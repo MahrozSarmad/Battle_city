@@ -1,6 +1,4 @@
 """
-Tank Classes — All Tank Types
-AL2002 Artificial Intelligence Lab | Spring 2026
 
 Implements all agent models:
   PlayerTank  — Human-controlled

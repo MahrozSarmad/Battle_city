@@ -1,6 +1,5 @@
 """
 Module C — Adversarial Search: Minimax + Alpha-Beta Pruning
-AL2002 Artificial Intelligence Lab | Spring 2026
 
 Boss Tank uses Minimax with Alpha-Beta pruning.
 MAX node = Boss Tank (maximises heuristic)

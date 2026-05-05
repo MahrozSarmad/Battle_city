@@ -1,6 +1,5 @@
 """
 Module B — Search Algorithms
-AL2002 Artificial Intelligence Lab | Spring 2026
 
 Three algorithms, three agent types:
   BFS           → Basic Tank   (Simple Reflex Agent)

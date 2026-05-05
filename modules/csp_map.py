@@ -1,6 +1,5 @@
 """
 Module A — Constraint Satisfaction Problem (CSP) Map Generator
-AL2002 Artificial Intelligence Lab | Spring 2026
 
 Generates valid, playable Battle City maps using backtracking + forward checking.
 Constraints:

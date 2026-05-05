@@ -1,7 +1,4 @@
 """
-Battle City (Tank 1990) — Main Game Loop
-AL2002 Artificial Intelligence Lab | Spring 2026
-
 Orchestrates all modules:
   Module A: CSP Map Generator
   Module B: BFS / Greedy / A* Tank agents
