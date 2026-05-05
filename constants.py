@@ -1,7 +1,4 @@
-"""
-Battle City (Tank 1990) - Constants & Configuration
-AL2002 Artificial Intelligence Lab | Spring 2026
-"""
+
 
 import pygame
 
