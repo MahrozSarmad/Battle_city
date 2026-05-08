@@ -165,6 +165,7 @@ class BasicTank(Tank):
     """
     Simple Reflex Agent: IF-THEN rules only. No memory, no planning.
     BFS path to Eagle. Shoots if player in line-of-sight.
+    Implemented as a stateless agent: re-calculates next step every move.
     """
 
     def __init__(self, x, y):
@@ -172,20 +173,11 @@ class BasicTank(Tank):
         self.hp            = 1
         self.move_interval = BASIC_MOVE_TICKS
         self.fire_interval = BASIC_FIRE_TICKS
-        self._path         = []
-        self._bfs_timer    = 0
         self._nodes_searched = 0
 
     def decide(self, grid, player_pos, eagle_pos):
         """Simple Reflex rules. Returns (action, fire?)."""
-        self._bfs_timer -= 1
-
-        # Recompute BFS path to EAGLE
-        if not self._path or self._bfs_timer <= 0:
-            result = bfs(grid, self.pos(), eagle_pos)
-            self._path, self._nodes_searched = result if result else ([], 0)
-            self._bfs_timer = BFS_REPLAN_TICKS
-
+        
         # Rule 1: Shoot if player aligned (Simple Reflex)
         should_fire = False
         px, py = player_pos
@@ -198,34 +190,27 @@ class BasicTank(Tank):
                 else:             self.direction = UP
                 should_fire = True
 
-        # Rule 2: Follow BFS path
+        # Rule 2: Movement (Stateless BFS)
+        # We run BFS every time to find ONLY the next step. No path is stored.
         move_dir = None
-        if self._path:
-            next_tile = self._path[0]
-            # If path head occupied/changed, replan
-            tx, ty = next_tile
-            if grid[ty][tx] in (STEEL, WATER):
-                self._path = []
-            else:
-                dx = tx - self.x
-                dy = ty - self.y
-                move_dir = (dx, dy)
-                if (tx, ty) == self.pos():
-                    self._path.pop(0)
-                    if self._path:
-                        nx2, ny2 = self._path[0]
-                        move_dir = (nx2-self.x, ny2-self.y)
+        result = bfs(grid, self.pos(), eagle_pos)
+        path, nodes = result if result else ([], 0)
+        self._nodes_searched = nodes
+
+        if path:
+            tx, ty = path[0]
+            move_dir = (tx - self.x, ty - self.y)
         else:
-            # Random free direction
+            # Random free direction if no path exists
             free = []
             for d in DIRS:
-                ddx, ddy = d
-                nx, ny = self.x+ddx, self.y+ddy
+                dx, dy = d
+                nx, ny = self.x+dx, self.y+dy
                 if 0<=nx<GRID_SIZE and 0<=ny<GRID_SIZE and grid[ny][nx] not in (STEEL,WATER):
                     free.append(d)
             move_dir = random.choice(free) if free else None
 
-        # Rule 3: Shoot brick in movement direction
+        # Rule 3: Shoot brick/eagle in movement direction
         if move_dir and not should_fire:
             ddx, ddy = move_dir
             nx, ny = self.x+ddx, self.y+ddy
@@ -244,10 +229,7 @@ class BasicTank(Tank):
             bullet = self.fire()
 
         if move_dir and self.can_move():
-            # Advance path pointer after successful move
-            if self.try_move(move_dir, grid) and self._path:
-                if self._path and self._path[0] == self.pos():
-                    self._path.pop(0)
+            self.try_move(move_dir, grid)
 
         return bullet
 
@@ -267,69 +249,30 @@ class FastTank(Tank):
         self.move_interval = FAST_MOVE_TICKS
         self.fire_interval = FAST_FIRE_TICKS
         self._nodes_searched = 0
-        self._stuck_counter = 0
-        self._last_pos = None
-        self._memory = []  # Last 8 tiles visited to break loops
 
     def update(self, grid, player_pos, eagle_pos):
         self.tick_timers()
         bullet = None
 
-        # 1. Greedy Decision (Use breadcrumb memory to avoid loops)
-        next_tile, nodes = greedy_best_first_step(grid, self.pos(), eagle_pos, self._memory)
+        # 1. Greedy Decision (No memory, pure reaction)
+        # Re-compute every tick as per manual.
+        next_tile, nodes = greedy_best_first_step(grid, self.pos(), eagle_pos)
         self._nodes_searched = nodes
 
-        # Update memory (keep last 8 positions)
-        self._memory.append(self.pos())
-        if len(self._memory) > 8:
-            self._memory.pop(0)
-
-        # Detect stuck (no movement)
-        if self._last_pos == self.pos():
-            self._stuck_counter += 1
-        else:
-            self._stuck_counter = 0
-        
-        # Update last position after check
-        old_pos = self.pos()
-        
-        should_fire = False
-        move_dir = None
-
-        if next_tile:
+        # 2. Movement & Firing Rule (Goal-Based)
+        if next_tile and self.can_move():
             tx, ty = next_tile
             move_dir = (tx - self.x, ty - self.y)
-
-            # Rule: shoot brick or eagle in path (never detour!)
-            # If we see a target, we LOCK this direction until it's gone
+            
+            # Wall Rule: IF next tile is Brick/Eagle THEN shoot it.
+            # Do NOT detour — push straight through.
             if grid[ty][tx] in (BRICK, EAGLE):
                 self.direction = move_dir
-                should_fire = True
-            
-        # 2. Apply Decision
-        if should_fire and self.can_fire():
-            bullet = self.fire()
-            
-        if move_dir and self.can_move() and not should_fire:
-            if not self.try_move(move_dir, grid):
-                # If move blocked by target, shoot it
-                tx, ty = self.x + move_dir[0], self.y + move_dir[1]
-                if 0<=tx<GRID_SIZE and 0<=ty<GRID_SIZE and grid[ty][tx] in (BRICK, EAGLE):
-                    if self.can_fire() and not bullet:
-                        self.direction = move_dir
-                        bullet = self.fire()
-
-        # 3. Aggression: REMOVED (Guide says FastTank "Ignores player")
-        # 4. Escape: If stuck for too long, try a random move
-        if self._stuck_counter > 20:
-            free = [d for d in DIRS if 0<=self.x+d[0]<GRID_SIZE
-                    and 0<=self.y+d[1]<GRID_SIZE
-                    and grid[self.y+d[1]][self.x+d[0]] not in (STEEL,WATER)]
-            if free:
-                self.try_move(random.choice(free), grid)
-                self._stuck_counter = 0
-
-        self._last_pos = old_pos
+                if self.can_fire():
+                    bullet = self.fire()
+            else:
+                self.try_move(move_dir, grid)
+        
         return bullet
 
 

@@ -81,11 +81,11 @@ def bfs(grid, start, goal):
 
 # ─── Greedy Best-First Search ─────────────────────────────────────────────────
 
-def greedy_best_first_step(grid, pos, goal, exclude_list=None):
+def greedy_best_first_step(grid, pos, goal):
     """
     Greedy Best-First: single-step decision.
     Returns the neighbor tile with lowest Manhattan distance to goal.
-    Supports a 'memory' (exclude_list) to avoid local minima/loops.
+    Purely heuristic-driven; intentional failure in local minima.
     """
     x, y = pos
     gx, gy = goal
@@ -94,14 +94,8 @@ def greedy_best_first_step(grid, pos, goal, exclude_list=None):
     best_tile   = None
     best_h      = float('inf')
     
-    # Ensure exclude_list is a set for O(1) lookups
-    excludes = set(exclude_list) if exclude_list else set()
-
     for nx, ny in _neighbors(x, y, grid):
         nodes_visited += 1
-        if (nx, ny) in excludes:
-            continue
-            
         cell = grid[ny][nx]
         if cell in (STEEL, WATER):
             continue
@@ -110,10 +104,6 @@ def greedy_best_first_step(grid, pos, goal, exclude_list=None):
         if h < best_h:
             best_h    = h
             best_tile = (nx, ny)
-
-    # Fallback: if trapped, try moving even to excluded positions (but not Steel/Water)
-    if best_tile is None and excludes:
-        return greedy_best_first_step(grid, pos, goal, None)
 
     return best_tile, nodes_visited
 
