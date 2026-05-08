@@ -250,6 +250,7 @@ class Renderer:
         self.screen.blit(surf, r)
 
         if subtext:
+            sub = self.font_med.render(subtext, True, HUD_TEXT)
             sr  = sub.get_rect(center=(cx, SCREEN_H//2 + 30))
             self.screen.blit(sub, sr)
 
