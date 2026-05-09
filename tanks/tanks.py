@@ -300,6 +300,15 @@ class ArmorTank(Tank):
         self._cover_timer  = 0
         self._nodes_searched = 0
         self._hit_flash    = 0  # visual flash timer
+        self._last_path_tile = None
+        self._last_path_type = None
+
+    def hit_color(self):
+        """Returns a color based on current HP: healthy=Blue, damaged=Reddish."""
+        if self.hp >= 4: return (100, 100, 255) # Steel Blue
+        if self.hp == 3: return (150, 100, 200) # Purple-ish
+        if self.hp == 2: return (200, 80, 100)  # Orange-Red
+        return (255, 50, 50)                    # Bright Red (Retreat mode)
 
     def take_hit(self):
         self.hp -= 1
@@ -316,6 +325,15 @@ class ArmorTank(Tank):
     def _replan_astar(self, grid, goal):
         result = astar(grid, self.pos(), goal)
         self._path, self._nodes_searched = result if result else ([], 0)
+        # Record the type of the next tile to detect map changes
+        if self._path:
+            tx, ty = self._path[0]
+            self._last_path_tile = (tx, ty)
+            self._last_path_type = grid[ty][tx]
+
+    def _path_was_brick(self, tx, ty):
+        """Checks if the next tile in our path used to be a brick."""
+        return (tx, ty) == self._last_path_tile and self._last_path_type == BRICK
 
     def update(self, grid, player_pos, eagle_pos):
         self.tick_timers()
@@ -389,13 +407,24 @@ class ArmorTank(Tank):
             if self._path:
                 next_tile = self._path[0]
                 tx, ty = next_tile
-                # Replan if tile changed
-                if grid[ty][tx] in (STEEL, WATER):
+                
+                # Manual Constraint: Replan if map changes (wall destroyed in path)
+                # or if path becomes blocked.
+                current_tile_type = grid[ty][tx]
+                if current_tile_type in (STEEL, WATER):
                     self._path = []
                     self._replan_astar(grid, eagle_pos)
-                else:
+                elif current_tile_type in (EMPTY, FOREST) and self._path_was_brick(tx, ty):
+                    # Wall in path was destroyed! Replan for optimal route.
+                    self._path = []
+                    self._replan_astar(grid, eagle_pos)
+                
+                if self._path:
+                    # Update local ref after potential replan
+                    tx, ty = self._path[0]
                     move_dir = (tx-self.x, ty-self.y)
-                    # Shoot brick in path
+                    
+                    # Wall Rule: Shoot brick in path (Cost 3 logic)
                     if grid[ty][tx] == BRICK and self.can_fire() and not bullet:
                         self.direction = move_dir
                         bullet = self.fire()
@@ -403,6 +432,14 @@ class ArmorTank(Tank):
                         if self.try_move(move_dir, grid):
                             if self._path and self._path[0] == self.pos():
                                 self._path.pop(0)
+                                # Update tracking for the new next tile
+                                if self._path:
+                                    nx, ny = self._path[0]
+                                    self._last_path_tile = (nx, ny)
+                                    self._last_path_type = grid[ny][nx]
+                                else:
+                                    self._last_path_tile = None
+                                    self._last_path_type = None
 
         return bullet
 
@@ -503,17 +540,17 @@ class BossTank(Tank):
         if self.hp >= 7:
             self._phase = 1
             self.move_interval = 8   # Slow (Original 4 doubled)
-            self.fire_interval = 60  # 2.0s
+            self.fire_interval = 240  # 2.0s
             self._depth = 2
         elif self.hp >= 3:
             self._phase = 2
             self.move_interval = 6   # Medium (Original 3 doubled)
-            self.fire_interval = 45  # 1.5s
+            self.fire_interval = 120  # 1.5s
             self._depth = 3
         else:
             self._phase = 3
             self.move_interval = 4   # Fast (Original 2 doubled)
-            self.fire_interval = 24  # 0.8s
+            self.fire_interval = 100  # 0.8s
             self._depth = 4
 
     def take_hit(self):

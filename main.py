@@ -70,9 +70,9 @@ class Game:
 
         if level == "boss":
             self.grid  = generate_boss_arena()
-            # Boss Level: Special spawns inside the 12x12 arena
-            self.player = PlayerTank(13, 17)
-            self.boss_tank = BossTank(13, 8)
+            # Boss Level: Special spawns inside the 18x18 arena (offset 4,4)
+            self.player = PlayerTank(12, 20)
+            self.boss_tank = BossTank(12, 5)
             self.enemies = [self.boss_tank]
             self.enemy_pool = []
         else:
@@ -345,7 +345,8 @@ class Game:
             elif self.state in (STATE_PLAYING, STATE_LEVEL_WIN):
                 self.renderer.render_grid(self.grid)
                 if self.eagle_destroyed:
-                    self.renderer.render_eagle_destroyed(EAGLE_POS)
+                    eagle_loc = self.current_eagle_pos or EAGLE_POS
+                    self.renderer.render_eagle_destroyed(eagle_loc)
                 self.renderer.render_bullets(self.bullets)
                 self.renderer.render_tanks(
                     self.player,
