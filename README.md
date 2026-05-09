@@ -1,12 +1,9 @@
-<<<<<<< HEAD
-# Battle_city
-=======
 # Battle City (Tank 1990) — AL2002 AI Lab Project
-## Spring 2026 | Python Implementation
+## Spring 2026 | Python & Pygame Implementation
 
 ---
 
-## Quick Start
+## 🎮 Quick Start
 
 ```bash
 pip install pygame
@@ -15,122 +12,95 @@ python main.py
 
 ---
 
-## Project Structure
+## 🛠️ Project Architecture
 
-```
+```text
 battle_city/
-├── main.py              # Game loop & entry point
-├── constants.py         # All constants, tile IDs, colors, timing
-├── renderer.py          # Pygame rendering (grid, tanks, bullets, HUD)
-├── requirements.txt
+├── main.py              # Game orchestrator, event loop, and level management
+├── constants.py         # Global configuration (timing, colors, tile IDs)
+├── renderer.py          # Graphics engine and UI overlays (HUD, Menus)
 ├── modules/
-│   ├── csp_map.py       # Module A — CSP Map Generator
-│   ├── search.py        # Module B — BFS, Greedy Best-First, A*
-│   └── minimax.py       # Module C — Minimax + Alpha-Beta Pruning
+│   ├── csp_map.py       # Module A: Map Generator (Backtracking + Forward Checking)
+│   ├── search.py        # Module B: Search Algorithms (BFS, Greedy, A*)
+│   └── minimax.py       # Module C: Adversarial AI (Minimax + Alpha-Beta)
 └── tanks/
-    └── tanks.py         # All tank classes (Player, Basic, Fast, Armor, Boss)
+    └── tanks.py         # Tank agent definitions and behavior state machines
 ```
 
 ---
 
-## AI Modules
+## 🧠 Design Decisions
 
-### Module A — CSP Map Generator (`modules/csp_map.py`)
+### **1. 30 FPS Synchronized Tick-Rate**
+Unlike standard games that run as fast as possible, this implementation uses a strict **30 FPS tick-rate** to ensure AI decision-making is synchronized with game physics. All speeds are defined as "ticks per move," allowing us to precisely control the "intelligence vs. speed" balance across different tank phases.
 
-Generates valid 26×26 maps using **backtracking + forward checking**.
+### **2. Grid-Based Abstraction**
+The game world is mapped to a **26×26 logical grid**. While the renderer handles smooth pixel movement, the AI agents perceive the world as discrete tiles. This allows for clean implementations of search algorithms (BFS/A*) without the overhead of continuous collision geometry.
 
-| Constraint | Description |
-|---|---|
-| Base Safety | Eagle surrounded by ≥1 ring of Brick/Steel |
-| Reachability | BFS path from every spawn → Eagle exists |
-| Fairness | No spawn within 10 tiles of player |
-| Density | ≤ 40% wall tiles |
-| Water Safety | Water cannot block the only path to Eagle |
-
-**Level configs:**
-- Level 1: Dense brick maze, sparse steel
-- Level 2: Mixed brick + steel fortress
-- Boss: Small fixed arena
+### **3. Phase-Driven State Machines**
+The **Armor Tank** and **Boss Tank** use internal state machines. 
+- **Armor Tank**: Switches from "Attack" to "Retreat" based on a hit-counter.
+- **Boss Tank**: Dynamically updates its search depth and speed as its HP drops, simulating an "enraged" state.
 
 ---
 
-### Module B — Search Algorithms (`modules/search.py`)
+## 🔬 Algorithm Analysis & Comparison
 
-| Algorithm | Tank | Agent Model | Behaviour |
-|---|---|---|---|
-| BFS | BasicTank | Simple Reflex | Shortest-hop path. Equal-cost tiles. Predictable. |
-| Greedy Best-First | FastTank | Goal-Based | Rushes via Manhattan heuristic. Can get stuck. |
-| A* | ArmorTank | Model-Based Reflex | Cost-aware. Shoots through brick (cost 3) vs. long detour (cost 6+). |
+This project serves as a live demonstration of the hierarchy of AI agent architectures.
 
-**Key demonstration:** Place a 1-tile-wide brick wall in front of all three tank types:
-- BFS → takes the long way around (ignores cost)
-- Greedy → may get stuck (local minima — intentional)
-- A* → shoots through the wall (cheaper than detour)
+| Algorithm | Agent Architecture | Cost Awareness | Goal Priority | Typical Failure Mode |
+|---|---|:---:|:---:|---|
+| **BFS** | Simple Reflex | No | High | Inefficient (takes long routes). |
+| **Greedy** | Goal-Based | No | Absolute | Local Minima (gets stuck in U-walls). |
+| **A*** | Model-Based | Yes | High | Optimal but computationally heavier. |
+| **Minimax** | Adversarial | Relative | Dynamic | Computationally expensive without pruning. |
 
----
-
-### Module C — Adversarial Search (`modules/minimax.py`)
-
-Boss Tank uses **Minimax with Alpha-Beta Pruning**.
-
-| Phase | HP | Depth | Behaviour |
-|---|---|---|---|
-| Phase 1 | 10–7 | 2 | Aggressive push |
-| Phase 2 | 6–3 | 3 | Attack + seek cover |
-| Phase 3 | 2–1 | 4 | Desperate all-out rush |
-
-**Heuristic factors:**
-- Player within 3 tiles: **+60**
-- Player in line-of-sight: **+50**
-- Boss adjacent to steel: **+30**
-- Player HP missing: **+20/hit**
-- Boss HP missing: **-40/hit**
-- Player in forest: **-20**
-
-**Alpha-Beta speedup:** Reduces O(5⁴)=625 nodes → ~O(5²)=25 nodes at depth 4.
-The HUD displays real-time node counts and speedup ratio for your report.
+### **Search Comparison: The "Brick Wall" Test**
+A key design feature of this lab is the **A* Cost Model**. 
+- **BFS** treats all paths as equal; it will walk 10 tiles around a wall to reach the eagle.
+- **A*** is programmed with costs: `Empty=1`, `Brick=3`. A* identifies that it is mathematically "cheaper" to spend 3 ticks shooting through a single brick than to walk 4+ tiles around it.
 
 ---
 
-## Tank Types
+## ⚔️ Adversarial AI (Boss Level)
 
-| Tank | HP | Speed | Fire Rate | Algorithm |
-|---|---|---|---|---|
-| Basic | 1 | Slow | 3s | BFS |
-| Fast | 1 | Fast | 1.5s | Greedy Best-First |
-| Armor | 4 | Medium | 2s | A* (retreats on 3rd hit) |
-| Boss | 10 | Variable | Variable | Minimax + Alpha-Beta |
+The final level features a **Boss Tank** running a **Minimax** algorithm with **Alpha-Beta Pruning**.
 
----
+### **Alpha-Beta Performance**
+The Boss calculates the best move by simulating your potential responses up to **Depth 4**. 
+- **Without Pruning**: $O(b^d)$ nodes — significant lag.
+- **With Alpha-Beta**: $O(b^{d/2})$ nodes — enables real-time decision making.
 
-## Controls
-
-| Key | Action |
-|---|---|
-| WASD / Arrow Keys | Move |
-| SPACE | Fire |
-| ENTER | Start / Restart |
-| ESC | Quit |
+**Heuristic Weights used for Evaluation:**
+- Player Proximity (3 tiles): **+60**
+- Line-of-Sight: **+50**
+- Adjacent to Steel Cover: **+30**
+- Eagle Proximity: **Tie-breaker pull**
 
 ---
 
-## Win / Lose Conditions
+## 📊 Results & Observations
 
-- **Win Level**: Destroy all 20 enemies → advance to next level
-- **Win Game**: Defeat Boss Tank
-- **Lose A**: Player runs out of lives
-- **Lose B**: Any bullet hits the Eagle (base)
+### **Map Generation (CSP)**
+The map generator successfully uses **Constraint Satisfaction** to ensure that every generated level is:
+1. **Passable**: A BFS path always exists from the player to the eagle.
+2. **Fair**: No enemy can spawn within 10 tiles of the player.
+3. **Safe**: The eagle is always protected by at least one layer of walls.
 
----
-
-## Report Notes
-
-For your project report, the HUD displays live Minimax statistics:
-- Nodes evaluated **without** Alpha-Beta pruning
-- Nodes evaluated **with** Alpha-Beta pruning
-- Speedup ratio
-
-These update in real-time during the Boss level. Screenshot or log them for your analysis section.
+### **Behavioral Differences**
+- **Basic Tanks** are purely reactive and easily baited into traps.
+- **Fast Tanks** are deadly if left alone but can be "tricked" into getting stuck on corners due to the greedy heuristic's lack of backtracking.
+- **Armor Tanks** demonstrate high intelligence by retreating behind steel walls to wait out their cooldowns after taking heavy damage.
 
 ---
 
+## ⌨️ Controls
+
+- **WASD / Arrow Keys**: Move Tank
+- **SPACE**: Fire Bullet
+- **ESC**: Pause Game / Exit to Menu
+- **ENTER**: Start Game / Continue
+
+---
+
+*Developed for the AL2002 Artificial Intelligence Lab — Spring 2026.*
